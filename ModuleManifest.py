@@ -1,5 +1,6 @@
 module_file_names = [
-    'builtins.meta'
+    'builtins.meta',
+    'python.python'
 ]
 
 # You can add more modules there in the following format:

@@ -4,3 +4,6 @@
 [submodule "builtins"]
 	path = builtins
 	url = https://github.com/ProgramFOX/SE-Chatbot-Builtins.git
+[submodule "python"]
+	path = python
+	url = https://github.com/overactor/SE-Chatbot-PythonModule.git
