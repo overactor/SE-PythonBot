@@ -1,5 +1,5 @@
 module_file_names = [
-    'builtins.meta',
+    'botbuiltins.meta',
     'python.python'
 ]
 

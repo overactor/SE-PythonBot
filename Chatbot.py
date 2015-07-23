@@ -1,13 +1,13 @@
 import getpass
 import re
-from HTMLParser import HTMLParser
+import html
 import logging.handlers
 import sys
 
-from ChatExchange.chatexchange.client import Client
-from ChatExchange.chatexchange.browser import LoginError
-from ChatExchange.chatexchange.events import MessagePosted, MessageEdited
-from ChatExchange.chatexchange.messages import Message
+from ChatExchange3.chatexchange3.client import Client
+from ChatExchange3.chatexchange3.browser import LoginError
+from ChatExchange3.chatexchange3.events import MessagePosted, MessageEdited
+from ChatExchange3.chatexchange3.messages import Message
 from fixedfont import fixed_font_to_normal, is_fixed_font
 from Config import Config
 import ModuleManifest
@@ -30,18 +30,18 @@ class Chatbot:
         self.site = ""
         self.owner_ids = []
         self.privileged_user_ids = []
-        self.save_subdirs = [ 'main' ]
+        self.save_subdirs = ['main']
         self.modules = MetaModule(ModuleManifest.module_file_names, self, 'all')
         try:
             SaveIO.set_subdirs(self.save_subdirs)
-        except DuplicateDirectoryException, e:
+        except DuplicateDirectoryException as e:
             if "-q" not in sys.argv:
-                print "[Chatbot] WARNING: there are modules with the same save directory: " + str(e)
+                print("[Chatbot] WARNING: there are modules with the same save directory: " + str(e))
         SaveIO.create_if_not_exists(SaveIO.data_dir)
         del self.save_subdirs
         duplicates = self.get_duplicate_commands()
         if duplicates and "-q" not in sys.argv:
-            print '[Chatbot] WARNING: there are commands with the same name: ' + str(duplicates)
+            print('[Chatbot] WARNING: there are commands with the same name: ' + str(duplicates))
 
     def main(self, config_data, additional_general_config):
         if "owners" in Config.General:
@@ -63,12 +63,12 @@ class Chatbot:
         else:
             sys.exit("Error: no chatbot name found. Please update Config.py.")
         # self.setup_logging() # if you want to have logging, un-comment this line
-        
+
         if "site" in config_data:
             self.site = config_data["site"]
             print("Site: %s" % self.site)
         else:
-            self.site = raw_input("Site: ")
+            self.site = input("Site: ")
         for o in self.owners:
             if self.site in o:
                 self.owner_ids.append(o[self.site])
@@ -81,7 +81,7 @@ class Chatbot:
             room_number = config_data["room"]
             print("Room number: %i" % room_number)
         else:
-            room_number = int(raw_input("Room number: "))
+            room_number = int(input("Room number: "))
         if "prefix" in config_data:
             self.prefix = config_data["prefix"]
         else:
@@ -92,11 +92,11 @@ class Chatbot:
         elif "email" in additional_general_config:
             email = additional_general_config["email"]
         else:
-            email = raw_input("Email address: ")
-        
+            email = input("Email address: ")
+
         self.client = Client(self.site)
-        
-        try:    
+
+        try:
             if "password" in Config.General:  # I would not recommend to store the password in Config.py
                 password = Config.General["password"]
                 self.client.login(email, password)
@@ -111,7 +111,7 @@ class Chatbot:
                         break
                     except LoginError:
                         if attempts < 2:
-                            print "Incorrect password."
+                            print("Incorrect password.")
                         else:
                             raise
         except LoginError:
@@ -125,11 +125,11 @@ class Chatbot:
         on_loads = self.modules.get_on_load_methods()
         for on_load in on_loads:
             on_load(self)
-            
+
         self.room.watch_socket(self.on_event)
 
         while self.running:
-            inputted = raw_input("<< ")
+            inputted = input("<< ")
             if inputted.strip() == "":
                 continue
             if inputted.startswith("$") and len(inputted) > 2:
@@ -192,10 +192,10 @@ class Chatbot:
         return False
 
     def on_event(self, event, client):
-        if  (not self.enabled and event.user.id not in self.owner_ids) \
-            or not self.running:
+        if (not self.enabled and event.user.id not in self.owner_ids) \
+                or not self.running:
             return
-        
+
         watchers = self.modules.get_event_watchers()
         for w in watchers:
             w(event, client, self)
@@ -207,8 +207,7 @@ class Chatbot:
             return
 
         message = event.message
-        h = HTMLParser()
-        content = h.unescape(Message(event.message.id, client).content_source)
+        content = html.unescape(Message(event.message.id, client).content_source)
 
         fixed_font = is_fixed_font(content)
         if fixed_font:
@@ -222,27 +221,25 @@ class Chatbot:
         else:
             stripped_content = content
         parts = stripped_content.split(" ")
-        if not parts[0].startswith(self.prefix) and (len(parts) != 2 or not parts[0].startswith(":")):
+        if not parts[0].startswith(self.prefix):
             return
 
-        if parts[0].startswith(self.prefix):
-            cmd_args = stripped_content[len(self.prefix):]
-            if self.requires_special_arg_parsing(cmd_args.split(" ")[0]):
-                cmd_args = content[len(self.prefix):]
-            output = self.get_output(cmd_args, message, event)
-            if output is not False and output is not None:
-                if len(output) > 500:
-                    message.reply("Output would be longer than 500 characters (the limit), so only the first 500 characters are posted now.")
-                    self.room.send_message(output[:500])
-                else:
-                    message.reply(output)
+        cmd_args = stripped_content[len(self.prefix):]
+        if self.requires_special_arg_parsing(cmd_args.split(" ")[0]):
+            cmd_args = content[len(self.prefix):]
+        output = self.get_output(cmd_args, message, event)
+        if output is not False and output is not None:
+            if len(output) > 500:
+                message.reply("Output would be longer than 500 characters (the limit), so only the first 500 characters are posted now.")
+                self.room.send_message(output[:500])
+            else:
+                message.reply(output)
 
     def get_output(self, cmd_args, message, event):
         if self.requires_char_check(cmd_args.split(" ")[0]) and \
                 event.user.id not in self.owner_ids and re.compile("[^a-zA-Z0-9 _-]").search(cmd_args):
-           return "Command contains invalid characters."
+            return "Command contains invalid characters."
         return self.command(cmd_args, message, event)
-
 
     def command(self, cmd, msg, event):
         cmd_args = cmd.split(' ')
